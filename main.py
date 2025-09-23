@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 import os
 import discord
 from discord.ext import commands
@@ -5,8 +6,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import requests
 import asyncio
 
+load_dotenv()
 TOKEN = os.environ['TOKEN']
-print(TOKEN)
 
 #from openai import OpenAI
 
