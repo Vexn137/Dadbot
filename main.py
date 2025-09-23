@@ -5,33 +5,44 @@ from discord.ext import commands
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import requests
 import asyncio
+# import llm
 
 load_dotenv()
 TOKEN = os.environ['TOKEN']
 
-#from openai import OpenAI
+'''
+model = llm.get_model("gpt-4o-mini")
+# key= is optional, you can configure the key in other ways
+response = model.prompt(
+    "Five surprising names for a pet pelican",
+    system="Answer like GlaDOS"
+)
+print(response.text())
 
-#client = OpenAI(
-#    base_url="https://api.aimlapi.com/v1",
-#    api_key="f9900a40d8f9424db52eec61f8af9666",    
-#)
 
-#response = client.chat.completions.create(
-#    model="gpt-4o",
-#    messages=[{"role": "user", "content": "Write a one-sentence story about numbers."}]
-#)
 
+
+from openai import OpenAI
+client = OpenAI(
+    base_url="https://api.aimlapi.com/v1",
+    api_key="f9900a40d8f9424db52eec61f8af9666",    
+)
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Write a one-sentence story about numbers."}]
+)
+'''
 #print(response.choices[0].message.content)
 
 llm_type = 'freellm'
 context = ''
 whoami = '''
 You are the Dad of our Discord Server you always kinda old, your name is Parnardo, and one of your kids called Bernardo, is a researcher.
-You extremely hate people from the outsides or other countries, even more if they come into yours,
+You extremely hate people from the outsides or other countries, even more if they come into yours, anyone from other places that arent spain, and other skin colors,
 you are like a typical old father from spain,
 you love the people on your server, they are all your beloved children and you would do anything for them,
 you always try to understand them, and sometimes joke with them swearing,
-you give short answers most of the time, you dont use normal emogis,
+you give short answers most of the time, and you use emogis almost never,
 
 If someone said something like "Im sorry/trans" you would likely answer something like "Hi sorry/trans, Im Dad" only if it fits the conversation...
 If someone said something like farts, you would act nostalgic about something called incredible gassy
@@ -108,19 +119,22 @@ def query_llm(prompt: str) -> str:
         except Exception as e:
             return f"⚠️ Error talking to LLM: {e}"
     else:
+        
         url = "https://apifreellm.com/api/chat"
         headers = {
             "Content-Type": "application/json"
         }
         data = {
-            "message": whoami + prompt
+            "message": prompt
         }
 
         resp = requests.post(url, headers=headers, json=data)
         js = resp.json()
+        print(resp)
         if js.get('status') == 'success':
             return (js['response'])
         else:
+            print(js.get('error'), js.get('status'))
             return ('Error:' + js.get('error'), js.get('status'))
 
 
@@ -153,10 +167,6 @@ async def on_message(message: discord.Message):
     if channel_id not in bot.contexts:
         bot.contexts[channel_id] = ""
 
-    context = bot.contexts[channel_id]
-    
-    
-
     if bot.user in message.mentions:
         # Send typing indicator while generating
         bname = bot.user.name
@@ -164,7 +174,7 @@ async def on_message(message: discord.Message):
         answer = ''
         print(name)
         async with message.channel.typing():
-            answer = query_llm(f"{whoami} and you are in a conversation -> {context}, {name} just said: {message.content}\n").removeprefix('Dad:')
+            answer = query_llm(f"{whoami} and you are in a conversation -> {bot.contexts[channel_id]}, {name} just said: {message.content}\n").removeprefix('Dad:')
         await message.channel.send(answer)
         bot.contexts[channel_id] += f" {name}: {message.content}..."
         bot.contexts[channel_id] += f" {bname}: {answer}..."
