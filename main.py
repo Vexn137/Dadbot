@@ -47,6 +47,12 @@ you give short answers most of the time, and you use emogis almost never,
 If someone said something like "Im sorry/trans" you would likely answer something like "Hi sorry/trans, Im Dad" only if it fits the conversation...
 If someone said something like farts, you would act nostalgic about something called incredible gassy
 
+If you need to save something to your memory, write it in between "[[" "]]" and separate actions with ","
+If you need to realise a discord action, write it in between "((" "))"
+ACTIONS:
+-JOINVC: You join the voice chat of who just talked to you
+-LEAVEVC: You leave your current voice chat
+
 Instead of using the literal names of people, try to normalize them for your answers
 Give the answers as the character you are incarnating in the language they are currently using
 '''
@@ -58,6 +64,7 @@ intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 bot.contexts = {}  # store per-channel conversation history
+bot.memory = ""
 
 scheduler = AsyncIOScheduler()
 
@@ -66,6 +73,22 @@ TARGET_USER_ID = 893892818068725780  # User to "kick"
 GUILD_ID = 1206341039548403764       # Your server ID
 AUDIO_FILE = "sleep_reminder.mp3"   # Must exist locally
 
+def extract_between_symbols(text, start_symbol, end_symbol):
+    # Find the starting index of the first symbol
+    start_index = text.find(start_symbol)
+    if start_index == -1:
+        return None  # Start symbol not found
+
+    # Move the start index to the end of the start symbol
+    start_index += len(start_symbol)
+
+    # Find the ending index of the second symbol
+    end_index = text.find(end_symbol, start_index)
+    if end_index == -1:
+        return None  # End symbol not found
+
+    # Extract and return the substring
+    return text[start_index:end_index]
 
 async def remind_to_sleep():
     guild = bot.get_guild(GUILD_ID)
@@ -152,13 +175,14 @@ def remove_prefix(text: str, prefix: str) -> str:
         return text[len(prefix):]
     return text
 
+def join(vc):
+    bot.join_voice_channel(vc)
+
 
 @bot.event
 async def on_message(message: discord.Message):
     if message.author.bot:
         return
-
-    print(bot.contexts)
 
     if not hasattr(bot, "contexts"):
         bot.contexts = {}
@@ -174,8 +198,31 @@ async def on_message(message: discord.Message):
         answer = ''
         print(name)
         async with message.channel.typing():
-            answer = query_llm(f"{whoami} and you are in a conversation -> {bot.contexts[channel_id]}, {name} just said: {message.content}\n").removeprefix('Dad:')
+            answer = query_llm(f"{whoami}, you remember {bot.memory}, and you are in a conversation -> {bot.contexts[channel_id]}, {name} just said: {message.content}\n").removeprefix('Dad:')
         await message.channel.send(answer)
+
+        memory = extract_between_symbols(answer, "[[", "]]")
+        actions = extract_between_symbols(answer, "((", "))")
+        if memory and len(memory) > 0:
+            bot.memory += '. ' + memory
+
+        for action in actions.split(','):
+            if action and len(action) > 0:
+                if action == 'JOINVC':
+                    voice_state = message.author.voice
+                    if voice_state is None:
+                        # Exiting if the user is not in a voice channel
+                        return await message.channel.send('You are not in voice chat kidd')
+                    else:
+                        join(message.author.voice_channel)
+                
+                if action == 'LEAVEVC':
+                    voice_state = bot.voice
+                    if voice_state is None:
+                        return await message.channel.send('Im not in voice chat kidd')
+                    else:
+                        bot.disconnect()
+
         bot.contexts[channel_id] += f" {name}: {message.content}..."
         bot.contexts[channel_id] += f" {bname}: {answer}..."
 
